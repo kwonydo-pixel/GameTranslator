@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Extract project
-        run: unzip -o GameTranslator-v6-toggle.zip
+        run: unzip -o GameTranslator-v7.zip
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
