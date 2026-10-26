@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          unzip -o GameTranslator-v34.zip
+          unzip -o GameTranslator-v35.zip
           test -f app/build.gradle.kts
 
       - name: Set up Java 17
