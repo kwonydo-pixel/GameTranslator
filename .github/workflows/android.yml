@@ -1,12 +1,13 @@
-name: Build Android APK
+name: Build Android APK (bundled Gemma)
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Extract project
@@ -15,12 +16,50 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build APK
-        run: gradle :app:assembleDebug
+      - name: Download Gemma model into APK assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          MODEL='Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task'
+          URL="https://github.com/kwonydo-pixel/GameTranslator/releases/download/gemma-model-v1/$MODEL"
+          curl -fL --retry 4 --retry-delay 5 --connect-timeout 30 "$URL" -o "app/src/main/assets/$MODEL"
+          test "$(stat -c%s "app/src/main/assets/$MODEL")" -eq 554661246
+      - name: Verify downloaded model before build
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL='Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task'
+          test -f "app/src/main/assets/$MODEL"
+          test "$(stat -c%s "app/src/main/assets/$MODEL")" -eq 554661246
+          echo "Model asset ready: $(du -h "app/src/main/assets/$MODEL")"
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify model is packaged in APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYVERIFY'
+          import zipfile, os, sys
+          apk = 'app/build/outputs/apk/debug/app-debug.apk'
+          model = 'assets/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task'
+          expected = 554661246
+          with zipfile.ZipFile(apk) as z:
+              try:
+                  info = z.getinfo(model)
+              except KeyError:
+                  sys.exit('ERROR: Gemma model is MISSING from APK assets. Build rejected.')
+              if info.file_size != expected:
+                  sys.exit(f'ERROR: model size mismatch: {info.file_size} vs {expected}')
+              print(f'OK: model present in APK: {info.file_size:,} bytes')
+              print(f'APK size: {os.path.getsize(apk):,} bytes')
+              print(f'Compression type: {info.compress_type} (0=stored, 8=deflated)')
+          PYVERIFY
       - uses: actions/upload-artifact@v4
         with:
-          name: GameTranslator-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: GameTranslator-v23-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
