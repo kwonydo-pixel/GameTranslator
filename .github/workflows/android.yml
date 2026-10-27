@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     name: Build Android APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
@@ -34,29 +34,49 @@ jobs:
         with:
           gradle-version: '8.9'
 
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: false
-
-      - name: Accept required SDK licenses
+      - name: Configure Android SDK
         shell: bash
         run: |
-          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses || true
-          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          set -e
 
+          echo "Android SDK: $ANDROID_HOME"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+              -name sdkmanager -type f | head -n 1)
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "Android SDK Manager not found"
+            exit 1
+          fi
+
+          echo "Using SDK Manager: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Extract GameTranslator v39
+        shell: bash
         run: |
+          set -e
+
           unzip -o GameTranslator-v39-reupload.zip
+
           echo "Project files:"
           ls -la
+
           echo "App files:"
           ls -la app
 
       - name: Build debug APK
+        shell: bash
         run: |
           gradle :app:assembleDebug --stacktrace
 
