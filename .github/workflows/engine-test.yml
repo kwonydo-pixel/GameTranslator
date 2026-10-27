@@ -2,14 +2,22 @@
 name: Test Translate Kit Download
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/engine-test.yml'
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Download translate-kit
+        shell: bash
         run: |
+          set -e
           git clone --recurse-submodules \
             https://github.com/marcosholgado/translate-kit.git
           test -d translate-kit
