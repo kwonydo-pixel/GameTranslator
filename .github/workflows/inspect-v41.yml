@@ -1,0 +1,28 @@
+
+name: Inspect v41 Source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inspect v41 archive
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== All files ==="
+          unzip -l GameTranslator-v41.zip
+
+          echo "=== Android source files ==="
+          unzip -Z1 GameTranslator-v41.zip |
+            grep -E 'build.gradle|settings.gradle|AndroidManifest.xml|\.kt$|\.java$' || true
