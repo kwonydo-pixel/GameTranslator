@@ -1,0 +1,70 @@
+name: Build v45 APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android native toolchain
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - name: Build translate-kit Android AAR
+        shell: bash
+        run: |
+          set -e
+          git clone --recurse-submodules https://github.com/marcosholgado/translate-kit.git
+          cd translate-kit
+          scripts/apply-engine-patches.sh
+          cd android
+          chmod +x gradlew
+          ./gradlew :translate-kit:assembleRelease --no-daemon
+      - name: Extract v45 and install AAR
+        shell: bash
+        run: |
+          set -e
+          mkdir -p v45
+          cd v45
+          unzip -q ../GameTranslator-v45.zip
+          mkdir -p app/libs app/src/main/assets/en-ko
+          cp ../translate-kit/android/translate-kit/build/outputs/aar/*.aar app/libs/translate-kit.aar
+      - name: Download English to Korean Bergamot model
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PYMODEL'
+          import urllib.request
+          from pathlib import Path
+          base='https://huggingface.co/midudev/firefox-translations/resolve/main/en-ko/'
+          folder=Path('v45/app/src/main/assets/en-ko')
+          for name in ['model.enko.intgemm.alphas.bin','srcvocab.enko.spm','trgvocab.enko.spm','lex.50.50.enko.s2t.bin']:
+              print('Downloading',name,flush=True)
+              urllib.request.urlretrieve(base+name,folder/name)
+              assert (folder/name).stat().st_size>0
+          PYMODEL
+      - name: Build test APK
+        shell: bash
+        run: |
+          set -e
+          cd v45
+          gradle :app:assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameTranslator-v45-APK
+          path: v45/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
