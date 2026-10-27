@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  APP_VERSION: v41
+  APP_VERSION: v42
 
 jobs:
   build:
