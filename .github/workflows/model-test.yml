@@ -1,5 +1,5 @@
 
-name: Download Korean Translation Model
+name: Prepare Korean Translation Model
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  download:
+  prepare:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -49,18 +49,57 @@ jobs:
 
           if downloaded == 0:
               raise RuntimeError("No model files found")
-
-          print(f"Downloaded {downloaded} files")
           PY
 
-      - name: Show downloaded files
+      - name: Generate Bergamot configuration
+        shell: bash
         run: |
-          ls -lh models/en-ko
-          du -sh models/en-ko
+          set -e
+          cd models/en-ko
 
-      - name: Upload model files
+          for file in \
+            model.enko.intgemm.alphas.bin \
+            srcvocab.enko.spm \
+            trgvocab.enko.spm \
+            lex.50.50.enko.s2t.bin
+          do
+            test -s "$file" || {
+              echo "Missing or empty file: $file"
+              exit 1
+            }
+          done
+
+          cat > config.enko.yml <<'YAML'
+          relative-paths: true
+          models:
+            - model.enko.intgemm.alphas.bin
+          vocabs:
+            - srcvocab.enko.spm
+            - trgvocab.enko.spm
+          shortlist:
+            - lex.50.50.enko.s2t.bin
+            - false
+          beam-size: 1
+          normalize: 1.0
+          word-penalty: 0
+          max-length-break: 128
+          mini-batch-words: 1024
+          workspace: 128
+          max-length-factor: 2.0
+          skip-cost: true
+          cpu-threads: 0
+          quiet: true
+          quiet-translation: true
+          gemm-precision: int8shiftAlphaAll
+          alignment: soft
+          YAML
+
+          cat config.enko.yml
+          echo "Model files and configuration prepared"
+
+      - name: Upload prepared model
         uses: actions/upload-artifact@v4
         with:
-          name: english-korean-model
+          name: english-korean-prepared
           path: models/en-ko/
           if-no-files-found: error
