@@ -1,5 +1,5 @@
 
-name: Test Translate Kit Download
+name: Test Translate Kit Build
 
 on:
   push:
@@ -10,15 +10,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-24.04
-
     steps:
-      - name: Download translate-kit
-        shell: bash
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install native build tools
         run: |
-          set -e
+          sdkmanager "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Download translate-kit
+        run: |
           git clone --recurse-submodules \
             https://github.com/marcosholgado/translate-kit.git
-          test -d translate-kit
-          echo "Engine source downloaded successfully"
+          cd translate-kit
+          scripts/apply-engine-patches.sh
+
+      - name: Build Android AAR
+        run: |
+          cd translate-kit/android
+          chmod +x gradlew
+          ./gradlew :translate-kit:assembleRelease --no-daemon
+
+      - name: Upload AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: translate-kit-aar
+          path: translate-kit/android/translate-kit/build/outputs/aar/*.aar
+          if-no-files-found: error
