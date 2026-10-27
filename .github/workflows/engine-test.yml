@@ -1,0 +1,16 @@
+
+name: Test Translate Kit Download
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download translate-kit
+        run: |
+          git clone --recurse-submodules \
+            https://github.com/marcosholgado/translate-kit.git
+          test -d translate-kit
+          echo "Engine source downloaded successfully"
