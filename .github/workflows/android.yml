@@ -1,5 +1,5 @@
 
-name: Build GameTranslator v39
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -7,11 +7,14 @@ on:
     branches:
       - main
     paths:
-      - 'GameTranslator-v39-reupload.zip'
+      - 'GameTranslator-v*.zip'
       - '.github/workflows/android.yml'
 
 permissions:
   contents: read
+
+env:
+  APP_VERSION: v40
 
 jobs:
   build:
@@ -29,7 +32,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.9
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -53,8 +56,6 @@ jobs:
             exit 1
           fi
 
-          echo "Using SDK Manager: $SDKMANAGER"
-
           yes | "$SDKMANAGER" --licenses > /dev/null || true
 
           "$SDKMANAGER" --install \
@@ -62,16 +63,13 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Extract GameTranslator v39
+      - name: Extract GameTranslator
         shell: bash
         run: |
           set -e
-
-          unzip -o GameTranslator-v39-reupload.zip
-
+          unzip -o "GameTranslator-${APP_VERSION}.zip"
           echo "Project files:"
           ls -la
-
           echo "App files:"
           ls -la app
 
@@ -84,7 +82,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: GameTranslator-v39-APK
+          name: GameTranslator-${{ env.APP_VERSION }}-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
