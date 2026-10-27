@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
     steps:
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -19,23 +21,62 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Install native build tools
+      - name: Locate Android SDK tools
+        shell: bash
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "ndk;28.2.13676358" "cmake;3.22.1"
+          set -e
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+
+          if [ -z "$SDK_ROOT" ]; then
+            echo "Android SDK path not found"
+            exit 1
+          fi
+
+          SDKMANAGER=$(find "$SDK_ROOT/cmdline-tools" \
+            -type f -name sdkmanager \
+            2>/dev/null | head -n 1)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install native build tools
+        shell: bash
+        run: |
+          set -e
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
 
       - name: Download translate-kit
+        shell: bash
         run: |
+          set -e
           git clone --recurse-submodules \
             https://github.com/marcosholgado/translate-kit.git
+
           cd translate-kit
           scripts/apply-engine-patches.sh
 
       - name: Build Android AAR
+        shell: bash
         run: |
+          set -e
           cd translate-kit/android
           chmod +x gradlew
-          ./gradlew :translate-kit:assembleRelease --no-daemon
+          ./gradlew :translate-kit:assembleRelease \
+            --no-daemon \
+            --stacktrace
 
       - name: Upload AAR
         uses: actions/upload-artifact@v4
