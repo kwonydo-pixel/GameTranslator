@@ -1,0 +1,66 @@
+
+name: Download Korean Translation Model
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/model-test.yml'
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Download English to Korean model
+        shell: bash
+        run: |
+          set -e
+          mkdir -p models/en-ko
+
+          python3 - <<'PY'
+          import json
+          import urllib.request
+          from pathlib import Path
+
+          repo = "midudev/firefox-translations"
+          folder = "en-ko"
+          api = f"https://huggingface.co/api/models/{repo}/tree/main/{folder}"
+
+          with urllib.request.urlopen(api, timeout=60) as response:
+              files = json.load(response)
+
+          downloaded = 0
+          for item in files:
+              if item.get("type") != "file":
+                  continue
+
+              path = item["path"]
+              name = Path(path).name
+              url = f"https://huggingface.co/{repo}/resolve/main/{path}"
+              destination = Path("models/en-ko") / name
+
+              print(f"Downloading: {name}", flush=True)
+              urllib.request.urlretrieve(url, destination)
+              downloaded += 1
+
+          if downloaded == 0:
+              raise RuntimeError("No model files found")
+
+          print(f"Downloaded {downloaded} files")
+          PY
+
+      - name: Show downloaded files
+        run: |
+          ls -lh models/en-ko
+          du -sh models/en-ko
+
+      - name: Upload model files
+        uses: actions/upload-artifact@v4
+        with:
+          name: english-korean-model
+          path: models/en-ko/
+          if-no-files-found: error
