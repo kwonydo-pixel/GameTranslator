@@ -1,0 +1,36 @@
+name: Build v47 APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Extract v47 source
+        shell: bash
+        run: |
+          set -e
+          mkdir -p v47
+          cd v47
+          unzip -q ../GameTranslator-v47.zip
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          cd v47
+          gradle :app:assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameTranslator-v47-APK
+          path: v47/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
