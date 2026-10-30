@@ -1,0 +1,41 @@
+name: Build v51 APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Extract v51 source
+        shell: bash
+        run: |
+          set -e
+          mkdir -p v51
+          cd v51
+          unzip -q ../GameTranslator-v51.zip
+      - name: Fetch llama.cpp native runtime
+        shell: bash
+        run: |
+          set -e
+          git clone --depth 1 --branch b6000 https://github.com/ggml-org/llama.cpp.git v51/app/src/main/cpp/llama.cpp
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          cd v51
+          gradle :app:assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameTranslator-v51-APK
+          path: v51/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
