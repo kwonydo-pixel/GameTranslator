@@ -1,0 +1,32 @@
+name: Build v58 APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Extract source
+        run: |
+          mkdir -p v58
+          cd v58
+          unzip -q ../GameTranslator-v58.zip
+      - name: Fetch pinned llama.cpp
+        run: |
+          git clone --depth 1 --branch b6000 https://github.com/ggml-org/llama.cpp.git v58/app/src/main/cpp/llama.cpp
+      - name: Build APK
+        run: |
+          cd v58
+          gradle :app:assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameTranslator-v58-APK
+          path: v58/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
