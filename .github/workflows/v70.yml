@@ -1,0 +1,31 @@
+name: Test OPUS-MT models v70
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  opus-model-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Extract v70 source
+        run: |
+          mkdir -p v70
+          cd v70
+          unzip -q ../GameTranslator-v70.zip
+      - name: Install translation runtime
+        run: pip install 'torch>=2.2,<3' 'transformers>=4.41,<5' 'huggingface_hub>=0.25,<1' sentencepiece sacremoses
+      - name: Test real English and Japanese to Korean models
+        run: |
+          cd v70
+          python opus_eval/test_opus.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: opus-mt-v70-evaluation
+          path: v70/opus_eval_results.json
+          if-no-files-found: warn
